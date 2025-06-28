@@ -40,7 +40,7 @@ jobs:
             video_id=$(yt-dlp --get-id "$url" 2>/dev/null)
             clean_title=$(echo "$video_title" | sed 's/[^a-zA-Z0-9._-]/_/g' | sed 's/__*/_/g' | sed 's/^_//;s/_$//')
             temp_file="temp_${video_id}.mp3"
-            output_file="${clean_title}_${video_id}_pitch${pitch}.mp3"
+            output_file="music/${clean_title}_${video_id}_pitch${pitch}.mp3"
             
             echo "Video Title: $video_title"
             echo "Video ID: $video_id"
@@ -53,4 +53,5 @@ jobs:
             echo "Completed processing '$video_title' with pitch $pitch"
             echo "---"
           done < list.txt
+
 
