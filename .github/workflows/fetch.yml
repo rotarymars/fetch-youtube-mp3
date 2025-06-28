@@ -24,6 +24,20 @@ jobs:
           sudo apt install -y ffmpeg python3-pip rubberband-cli
           pip install yt-dlp
 
+      - name: Debug - Check installed tools
+        run: |
+          echo "Checking installed tools:"
+          which yt-dlp
+          which rubberband
+          which ffmpeg
+          yt-dlp --version
+          rubberband --version
+          ffmpeg -version | head -1
+
+      - name: Debug - Show list.txt contents
+        run: |
+          echo "Contents of list.txt:"
+          cat list.txt
 
       - name: Fetch mp3 from youtube
         run: |
@@ -32,12 +46,30 @@ jobs:
           fi
 
           while IFS=' ' read -r url pitch || [ -n "$url" ]; do
+            echo "=== Processing new entry ==="
             url=$(echo "$url" | xargs)
             pitch=$(echo "$pitch" | xargs)
             echo "Processing URL: $url"
             echo "Pitch shift: $pitch semitones"
-            video_title=$(yt-dlp --get-title "$url" 2>/dev/null)
-            video_id=$(yt-dlp --get-id "$url" 2>/dev/null)
+            
+            # Get video info with error handling
+            echo "Fetching video title..."
+            video_title=$(yt-dlp --get-title "$url" 2>&1)
+            if [ $? -ne 0 ]; then
+              echo "Error getting title: $video_title"
+              continue
+            fi
+            
+            echo "Fetching video ID..."
+            video_id=$(yt-dlp --get-id "$url" 2>&1)
+            if [ $? -ne 0 ]; then
+              echo "Error getting ID: $video_id"
+              continue
+            fi
+            
+            echo "Title: $video_title"
+            echo "ID: $video_id"
+            
             clean_title=$(echo "$video_title" | sed 's/[^a-zA-Z0-9._-]/_/g' | sed 's/__*/_/g' | sed 's/^_//;s/_$//')
             temp_file="temp_${video_id}.mp3"
             output_file="music/${clean_title}_${video_id}_pitch${pitch}.mp3"
@@ -46,12 +78,29 @@ jobs:
             echo "Video ID: $video_id"
             echo "Output file: $output_file"
             
+            echo "Downloading audio..."
             yt-dlp -x --audio-format mp3 -o "$temp_file" "$url"
+            if [ $? -ne 0 ]; then
+              echo "Error downloading audio"
+              continue
+            fi
+            
+            echo "Applying pitch shift..."
             rubberband -p "$pitch" "$temp_file" "$output_file"
+            if [ $? -ne 0 ]; then
+              echo "Error applying pitch shift"
+              rm -f "$temp_file"
+              continue
+            fi
             
             rm "$temp_file"
             echo "Completed processing '$video_title' with pitch $pitch"
             echo "---"
           done < list.txt
+
+      - name: Debug - List generated files
+        run: |
+          echo "Generated files in music directory:"
+          ls -la music/ || echo "No music directory or files found"
 
 
